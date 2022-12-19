@@ -1,0 +1,249 @@
+#calling required libraries
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(scales)
+library(lubridate)
+library(dplyr)
+#====================================================================#Data-Collection
+#====================================================================
+#reading the original owid covid csv file into data-frame
+covid_data <- read_csv("owid-covid-data.csv", col_types = cols(date = col_date(format = "%Y-%m-%d")))
+options(scipen= 999)
+#reading variants csv file from the source into data-frame
+covid_variants<- read_csv("covid-variants.csv",col_types = cols(date = col_date(format = "%Y-%m-%d")))
+covid_variants <- filter(covid_variants, location=='United Kingdom' | location=='India')
+#Handling missing values
+covid_variants[is.na(covid_variants)] <- 0
+#====================================================================#Data Pre-processing & Data Cleaning
+#====================================================================
+#preparing a data-frame for UK
+uk_covid_data <- filter(covid_data, location=='United Kingdom')
+#preparing a data-frame for India
+ind_covid_data <- filter(covid_data, location=='India')
+#Selecting required variables from the data set for uk data-frame
+uk_covid_data <-
+uk_covid_data %>% select(
+'location',
+'date',
+'total_cases',
+'new_cases',
+'total_deaths',
+'new_deaths',
+'reproduction_rate',
+'icu_patients',
+'hosp_patients',
+'weekly_hosp_admissions',
+'new_tests',
+'total_tests',
+'positive_rate',
+'total_vaccinations',
+'people_vaccinated',
+'people_fully_vaccinated',
+'total_boosters',
+'new_vaccinations',
+'stringency_index',
+'hospital_beds_per_thousand')
+# Handling missing values
+sum(is.na(uk_covid_data))
+colSums(is.na(uk_covid_data))
+uk_covid_data[is.na(uk_covid_data)] <- 0
+#Selecting required variables for uk data-frame
+ind_covid_data <- ind_covid_data %>% select(
+'location',
+'date',
+'total_cases',
+'new_cases',
+'total_deaths',
+'new_deaths',
+'reproduction_rate',
+'icu_patients',
+'hosp_patients',
+'weekly_hosp_admissions',
+'new_tests',
+'total_tests',
+'positive_rate',
+'total_vaccinations',
+'people_vaccinated',
+'people_fully_vaccinated',
+'total_boosters',
+'new_vaccinations',
+'stringency_index',
+'hospital_beds_per_thousand')
+# Handling missing values
+sum(is.na(ind_covid_data))
+colSums(is.na(ind_covid_data))
+ind_covid_data[is.na(ind_covid_data)] <- 0
+#====================================================================#Data-Transformation
+#====================================================================
+#gathering and merging data for evolution of deaths for UK and India during both waves:
+start_date_1 <- as.Date("2020-03-01", format = "%Y-%m-%d") #period of 1st wave in UK
+end_date_1 <- as.Date("2020-05-31", format = "%Y-%m-%d")
+uk_1 <- uk_covid_data %>% filter(date >= start_date_1 & date <= end_date_1) #filtering data-frame for 1st wave in UK
+start_date_dor <- as.Date("2020-05-31", format = "%Y-%m-%d") #period of dormant state in UK
+end_date_dor<- as.Date("2020-08-31", format = "%Y-%m-%d")
+uk_dor <- uk_covid_data %>% filter(date >= start_date_dor & date <= end_date_dor) # filtering data-frame for dormant state in UK
+start_date_2 <- as.Date("2020-08-31", format = "%Y-%m-%d")#period of 2nd Wave in UK
+end_date_2 <- as.Date("2021-04-30", format = "%Y-%m-%d")
+uk_2 <- uk_covid_data %>% filter(date >= start_date_2 & date <= end_date_2) #filtering data-frame for 2nd wave in UK
+start_date_1i <- as.Date("2020-03-01", format = "%Y-%m-%d")#period of 1st Wave in INDIA
+end_date_1i <- as.Date("2021-02-01", format = "%Y-%m-%d")
+ind_1 <- ind_covid_data %>% filter(date >= start_date_1i & date <= end_date_1i)#filtering data-frame for 1st wave in INDIA
+start_date_idor <- as.Date("2021-02-01", format = "%Y-%m-%d")#period of Dormant state in India
+end_date_idor<- as.Date("2021-03-30", format = "%Y-%m-%d")
+ind_dor <- ind_covid_data %>% filter(date >= start_date_idor & date <= end_date_idor) #filtering data-frame for Dormant in India
+start_date_2i <- as.Date("2021-03-30", format = "%Y-%m-%d")#period of 2nd Wave in India
+end_date_2i <- as.Date("2021-08-31", format = "%Y-%m-%d")
+ind_2 <- ind_covid_data %>% filter(date >= start_date_2i & date <= end_date_2i) #filtering data-frame for 2nd wave in India
+#Handling Missing values
+colSums(is.na(uk_1))
+uk_1[is.na(uk_1)] <- 0
+uk_2[is.na(uk_2)] <- 0
+uk_dor[is.na(uk_dor)] <- 0
+ind_1[is.na(ind_1)] <-0
+ind_2[is.na(ind_2)] <-0
+ind_dor[is.na(ind_dor)] <- 0
+#creating death table according to waves
+death_table <- data.frame(matrix(ncol = 4, nrow = 1))
+colnames(death_table) <-
+c(
+'UK_1st_wave_deaths',
+'UK_2nd_wave_deaths',
+'India_1st_wave_deaths',
+'India_2nd_wave_deaths'
+)
+death_table$UK_1st_wave_deaths<-sum(uk_1[, 'new_deaths'])
+death_table$UK_2nd_wave_deaths<-sum(uk_2[, 'new_deaths'])
+death_table$India_1st_wave_deaths<-sum(ind_1[, 'new_deaths'])
+death_table$India_2nd_wave_deaths<-sum(ind_2[, 'new_deaths'])
+death_table1<-as.data.frame(t(death_table)) #Rotating the data-frame
+colnames(death_table1) <-c('Total')
+#creating cases table according to waves
+cases_table <- data.frame(matrix(ncol = 4, nrow = 1))
+colnames(cases_table) <-
+c(
+'UK_1st_wave_cases',
+'UK_2nd_wave_cases',
+'India_1st_wave_cases',
+'India_2nd_wave_cases'
+)
+cases_table$UK_1st_wave_cases<-sum(uk_1[, 'new_cases'])
+cases_table$UK_2nd_wave_cases<-sum(uk_2[, 'new_cases'])
+cases_table$India_1st_wave_cases<-sum(ind_1[, 'new_cases'])
+cases_table$India_2nd_wave_cases<-sum(ind_2[, 'new_cases'])
+cases_table1<-as.data.frame(t(cases_table)) #Rotating the data-frame
+colnames(cases_table1) <-c('Total')
+#merging data-frames for people fully vaccinated and new deaths(bubble chart)
+Uk_ind_vacc <-
+rbind(
+uk_covid_data %>% select('location','date', 'new_deaths', 'people_fully_vaccinated'),
+ind_covid_data %>% select('location','date', 'new_deaths', 'people_fully_vaccinated')
+)
+#handling missing values in the data frame
+Uk_ind_vacc[is.na(Uk_ind_vacc)] <- 0
+#====================================================================
+# Multiple Linear regression
+#====================================================================
+#MLR UK
+uk_mlr <- lm(
+formula = new_deaths ~ icu_patients
++ hosp_patients
++ weekly_hosp_admissions
++ positive_rate
++ total_vaccinations
++ people_fully_vaccinated
++ new_vaccinations,
+data = uk_covid_data
+)
+summary(uk_mlr)
+# MLR prediction Model UK
+uk_pred_model<-data.frame(new_deaths=uk_covid_data$new_deaths, pred=uk_mlr$fitted.values)
+uk_pred_model
+#====================================================================#Data-Visualization
+#====================================================================
+#finding correlation between each variable
+ggcorr(uk_covid_data)+
+labs(title="Correlation between variables for UK")
+#plot showing evolution of cases for UK and India so far.(Line Chart)
+ggplot() +
+geom_line(
+data = filter(
+uk_covid_data,
+new_cases != 0,
+date >= start_date_1 &
+date <= end_date_2i
+),
+mapping = aes(x = date, y = new_cases, colour = "UK")
+) +
+geom_line(
+data = filter(
+ind_covid_data,
+new_cases != 0,
+date >= start_date_1 &
+date <= end_date_2i
+),
+mapping = aes(x = date, y = new_cases, colour = "INDIA")
+) +
+labs(x = "Date", y = "New Cases", colour = "Country") +
+ggtitle("Daily new confirmed COVID-19 cases") +
+scale_y_continuous(labels = unit_format(unit = "k", scale = 1e-3)) +
+scale_x_date(date_labels = "%b %d %y")
+#plot showing evolution of deaths for UK and India during both waves(Line Charts)
+ggplot()+
+geom_line(data = filter(uk_1, new_deaths!=0),mapping = aes(x = date, y = new_deaths, colour="1st Wave Uk"),size=0.5)+
+geom_line(data = filter(uk_dor, new_deaths!=0),mapping = aes(x = date, y = new_deaths, colour="dormant state UK"),size=0.5)+
+geom_line(data = filter(uk_2, new_deaths!=0),mapping = aes(x = date, y = new_deaths, colour="2nd Wave UK"),size=0.5)+
+geom_line(data = filter(ind_1, new_deaths!=0),mapping = aes(x = date, y = new_deaths, colour="1st Wave India"),size=0.5)+
+geom_line(data = filter(ind_dor, new_deaths!=0),mapping = aes(x = date, y = new_deaths, colour="dormant state India"),size=0.5)+
+geom_line(data = filter(ind_2, new_deaths!=0),mapping = aes(x = date, y = new_deaths, colour="2nd India"),size=0.5)+
+scale_color_manual(values=c('red2','Cornflowerblue','green4','magenta4','black', 'brown'))+
+labs(x="Date", y="New Deaths", colour="Countrywise and wavewise legends")+
+ggtitle("Daily new confirmed COVID-19 deaths")+
+scale_x_date(date_labels = "%b %d %y")
+#plot showing trends in people fully vaccinated and new deaths over the period of time for both countries.(Bubble Plot)
+ggplot() +
+geom_point(
+data = filter(
+Uk_ind_vacc,
+people_fully_vaccinated != 0,
+date >= start_date_1 &
+date <= end_date_2i
+),
+aes(
+x = date,
+y = new_deaths,
+color = location,
+size = people_fully_vaccinated
+),
+alpha = 0.5
+) +
+labs(x = "Date",
+y = "New Deaths",
+size = "People Fully Vaccinated",
+color = "Location") +
+ggtitle("Daily new COVID-19 deaths and people fully vaccinated") +
+scale_color_manual(values = c("#00AFBB", "#E7B800")) +
+scale_size(range = c(0.5, 7))+
+scale_x_date(date_labels = "%b %d %y")
+#plot showing trends in patients hospitalized and people fully vaccinated in uk so far(Line Chart)
+ggplot()+
+geom_line(data=filter(uk_covid_data, hosp_patients!=0),aes(date,hosp_patients, colour=people_fully_vaccinated),size=0.8)+
+labs(x="Date", y="Patients hospitalised",colour="People Fully Vaccinated")+
+ggtitle("Daily new COVID-19 patients hospitalised and people fully vaccinated")+
+scale_x_date(date_labels = "%b %d %y")
+#geom_line(data= ind_covid_data,aes(date,hosp_patients, colour=people_fully_vaccinated))
+#plot illustrating SARS-CoV-2 sequences by variant.(Stacked Bar Plot)
+ggplot() + geom_bar(
+aes(y = location, x = num_sequences, fill = variant),
+position = "fill",
+data = filter(covid_variants,num_sequences!=0),
+stat = 'identity')+ #,
+scale_x_continuous(labels=scales::percent)+
+labs(fill="Variants")+
+labs(x = "Number Sequences", y = "Country") +
+labs(title = "SARS-CoV-2 sequences by variant",
+subtitle = "The share of analysed sequences in the preceding two weeks that correspond to each variant group.")
+#Plot MLR
+ggplot(data = uk_pred_model, aes(x = new_deaths, y = pred)) +
+geom_point() +
+geom_abline(mapping=aes(slope=1,intercept=0), color='red')
